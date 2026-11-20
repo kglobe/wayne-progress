@@ -1,19 +1,19 @@
 # wayne-progress
 
-herdr-app 右邊的一欄，列出每場 wayne-mode 跑到哪、卡在哪。資料來源是 wayne-mode 寫在 repo 根目錄的 `.wayne-mode-todo-<session>.md`，只讀不寫。
+herdr-app 最右邊、tab bar 下面的一欄，列出每場 wayne-mode 跑到哪、卡在哪。資料來源是 wayne-mode 寫在 repo 根目錄的 `.wayne-mode-todo-<session>.md`，只讀不寫。
 
 每場一張卡片：
 
 - repo 名、狀態（等你、進行中、N 分鐘沒動、完成、停著）
-- 進度條和 `做完/全部`
-- 目前這一步（▶）前兩步、後四步，其他收成「前面 N 步」「後面還有 N 步」；有 `[wait]` 的話改以那一步為中心，紅字標出
+- 進度條和 `做完/全部`。每場固定一個顏色（依 session id 從四色挑），重點那一步用同一個顏色標出，狀態只看徽章
+- 目前這一步（▶）前兩步、後四步，其他收成「前面 N 步」「後面還有 N 步」；有 `[wait]` 的話改以那一步為重點
 - 點卡片跳到那個 agent 的終端機
 
 排序：等你的在最上面，再來是進行中，其他排後面。每 4 秒重讀一次。
 
 ## 安裝
 
-需要 Windows 版 herdr-app、`node` 和 `git` 在 PATH 上，以及 herdr-notify-win 裝好的 `main-wintoast` layout。
+需要 Windows 版 herdr-app、`node` 和 `git` 在 PATH 上，herdr-notify-win 裝好的 `main-wintoast` layout，以及 herdr-git 裝好的 tabs-git（Progress 按鈕加在它的 Git 後面）。
 
 ```powershell
 pwsh -File install.ps1
@@ -22,9 +22,9 @@ pwsh -File install.ps1
 install.ps1 會：
 
 1. 把 mod 複製到 `~/.config/herdr-app/mods/wayne-progress`（有設 `HERDR_APP_HOME` 就用那裡）
-2. 在 `main-wintoast` 右邊加一欄，id 是 `wayne-progress`，寬 380
+2. 在 `main-wintoast` 的 `work-body` 最右邊加一欄，id 是 `wayne-progress`，寬 380。放在 tab bar 下面，視窗的 X 留在右上角；舊版裝在別處的會移過來
 3. `keys.json` 加 `ctrl-shift-m` → `layout.toggle:wayne-progress`
-4. 在 tabs-git 的 tab bar（Git 後面）加 Progress 按鈕
+4. 在 tabs-git 的 Git 後面加 Progress 按鈕
 5. 跑 `herdr-app check`
 
 重跑不會重複加。herdr-git 的 install.ps1 會重建 tabs-git，跑過它之後要再跑一次這個，按鈕才會回來。

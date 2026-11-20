@@ -26,6 +26,9 @@ process.stdout.write(JSON.stringify(out));
 `;
 
 const RANK = { blocked: 3, working: 2, done: 1, idle: 0 };
+// Progress bar hues, picked per session so several cards don't all share the status color. Away from the theme's yellow/red/blue status colors.
+const BAR = ["#5cc8d6", "#a98bf0", "#7fc8a9", "#d79ad0"];
+const barColor = (id) => BAR[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % BAR.length];
 
 export default class WayneProgress extends View {
   init(_props, cx) {
@@ -85,9 +88,11 @@ export default class WayneProgress extends View {
     const focus = wait ? waitAt : cur;
     const from = focus < 0 ? Math.max(0, total - 3) : Math.max(0, focus - 2);
     const to = focus < 0 ? total : Math.min(total, focus + 5);
+    const hue = barColor(s.id);
     const line = (x, i) => {
       const mark = x.mark === "x" ? "✓" : x.mark === "skip" ? "–" : x.mark === "wait" ? "!" : i === cur ? "▶" : "·";
-      const c = x.mark === "wait" ? t.blocked : i === cur ? t.foreground : x.mark === " " ? t.muted : t.dim;
+      // The highlighted step takes the card's bar color; red stays on the badge.
+      const c = i === focus ? hue : x.mark === "wait" ? t.blocked : i === cur ? t.foreground : x.mark === " " ? t.muted : t.dim;
       return h_flex().gap(8).items_start()
         .child(div().w(12).flex_none().text_color(c).child(mark))
         // Only the step that matters wraps; the others stay one line so they don't outweigh it.
@@ -102,7 +107,7 @@ export default class WayneProgress extends View {
         .child(div().flex_1().min_w(0).truncate().text_size(13.5).font_semibold().child(s.name))
         .child(div().flex_none().px(6).h(18).flex().items_center().rounded(5).bg(color + "26").text_color(color).text_size(11).font_semibold().child(label)))
       .child(h_flex().items_center().gap(10)
-        .child(div().flex_1().h(4).rounded(2).bg(t.border).child(div().h_full().rounded(2).bg(color).w(`${Math.round(100 * done / total)}%`)))
+        .child(div().flex_1().h(4).rounded(2).bg(t.border).child(div().h_full().rounded(2).bg(hue).w(`${Math.round(100 * done / total)}%`)))
         .child(div().flex_none().text_size(12).text_color(t.muted).child(`${done}/${total}`)))
       .when(from > 0, (el) => el.child(div().text_color(t.dim).child(`前面 ${from} 步已處理`)))
       .children(s.steps.slice(from, to).map((x, k) => line(x, from + k)))
@@ -114,10 +119,10 @@ export default class WayneProgress extends View {
     const t = theme(), now = Date.now();
     const order = (s) => (s.agent?.status === "blocked" || s.steps.some((x) => x.mark === "wait") ? 0 : s.agent?.status === "working" ? 1 : 2);
     const list = [...this.sessions].sort((a, b) => order(a) - order(b) || b.mtime - a.mtime);
-    // Header is 42px with a bottom border so it lines up with the tab bar next to it.
+    // Header styled like the Repos panel it sits beside in the panel stack.
     return v_flex().id("wayne-progress").size_full().min_h(0).bg(t.chrome ?? t.background).text_color(t.foreground).text_size(13)
-      .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
-        .child(div().flex_1().text_size(12.5).text_color(t.muted).child("Progress"))
+      .child(h_flex().flex_none().px(14).pt(12).pb(4).gap(8).items_center()
+        .child(div().flex_1().text_size(15).font_semibold().child("Progress"))
         .child(div().text_size(12).text_color(t.dim).child(String(list.length))))
       .child(v_flex().id("wp-list").flex_1().min_h(0).p(8).gap(8).overflow_y_scrollbar()
         .when(Boolean(this.error), (el) => el.child(div().text_color(t.blocked).child(this.error)))

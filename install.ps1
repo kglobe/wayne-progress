@@ -1,4 +1,4 @@
-# Installs the wayne-progress pane and binds ctrl-shift-m to open or close it. Re-run to update.
+# Installs the wayne-progress column on the right of the work area, with a Progress button and ctrl-shift-m. Re-run to update.
 $ErrorActionPreference = 'Stop'
 $app = if ($env:HERDR_APP_HOME) { $env:HERDR_APP_HOME } else { "$env:USERPROFILE\.config\herdr-app" }
 $herdr = "$env:LOCALAPPDATA\Programs\herdr-app\herdr-app.exe"
@@ -9,15 +9,20 @@ $to = if (Test-Path $dir) { $dir } else { New-Item -ItemType Directory -Force "$
 Copy-Item "$PSScriptRoot\mods\wayne-progress\*.js", "$PSScriptRoot\mods\wayne-progress\*.svg", "$PSScriptRoot\mods\wayne-progress\mod.json" $to -Force
 if ("$to" -ne $dir) { Move-Item $to $dir }
 
-# A right column with a fixed id, so ctrl-shift-m can toggle it (mod.open would float it as an overlay instead).
+# Last child of work-body, under the tab bar: always on the far right, and the window buttons stay in the top-right corner.
+# A fixed id lets ctrl-shift-m toggle it (mod.open would float it as an overlay instead).
 $layout = "$app\layouts\main-wintoast.json"
 if (-not (Test-Path $layout)) { throw "$layout not found: run herdr-notify-win's install.ps1 first" }
 function Get-Nodes($node) { $node; foreach ($c in @($node.children)) { if ($null -ne $c) { Get-Nodes $c } } }
 # [IO.File] reads and writes UTF-8 (no BOM) in both pwsh and Windows PowerShell 5.1.
 $root = [IO.File]::ReadAllText($layout) | ConvertFrom-Json
-$block = Get-Nodes $root | Where-Object { $_.content.mod -eq 'wayne-progress' } | Select-Object -First 1
-if ($block) { $block.id = 'wayne-progress' }
-else { $root.children += [pscustomobject]@{ id = 'wayne-progress'; type = 'block'; content = @{ mod = 'wayne-progress' }; size = @{ px = 380 } } }
+$row = Get-Nodes $root | Where-Object { $_.id -eq 'work-body' } | Select-Object -First 1
+if (-not $row) { throw "no work-body row in $layout" }
+# Older installs put it right of the whole window, or in the panel stack.
+foreach ($n in Get-Nodes $root) { if ($n.children -and $n -ne $row) { $n.children = @($n.children | Where-Object { $_.content.mod -ne 'wayne-progress' }) } }
+if (-not ($row.children | Where-Object { $_.content.mod -eq 'wayne-progress' })) {
+    $row.children += [pscustomobject]@{ id = 'wayne-progress'; type = 'block'; content = @{ mod = 'wayne-progress' }; size = @{ px = 380 } }
+}
 [IO.File]::WriteAllText($layout, ($root | ConvertTo-Json -Depth 100))
 
 $keys = "$app\keys.json"
@@ -50,5 +55,5 @@ else {
     if ($LASTEXITCODE) { throw 'herdr-app check tabs-git failed' }
 }
 
-& $herdr check $dir
+& $herdr check $dir | Out-Host
 if ($LASTEXITCODE) { throw 'herdr-app check wayne-progress failed' }
