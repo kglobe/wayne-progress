@@ -6,8 +6,7 @@ herdr-app 右邊的一欄，列出每場 wayne-mode 跑到哪、卡在哪。資�
 
 - repo 名、狀態（等你、進行中、N 分鐘沒動、完成、停著）
 - 進度條和 `做完/全部`
-- 有 `[wait]` 的話，紅字寫在等什麼
-- 目前這一步（▶）前兩步、後四步，其他收成「前面 N 步」「後面還有 N 步」
+- 目前這一步（▶）前兩步、後四步，其他收成「前面 N 步」「後面還有 N 步」；有 `[wait]` 的話改以那一步為中心，紅字標出
 - 點卡片跳到那個 agent 的終端機
 
 排序：等你的在最上面，再來是進行中，其他排後面。每 4 秒重讀一次。
@@ -25,13 +24,14 @@ install.ps1 會：
 1. 把 mod 複製到 `~/.config/herdr-app/mods/wayne-progress`（有設 `HERDR_APP_HOME` 就用那裡）
 2. 在 `main-wintoast` 右邊加一欄，id 是 `wayne-progress`，寬 380
 3. `keys.json` 加 `ctrl-shift-m` → `layout.toggle:wayne-progress`
-4. 跑 `herdr-app check`
+4. 在 tabs-git 的 tab bar（Git 後面）加 Progress 按鈕
+5. 跑 `herdr-app check`
 
-重跑不會重複加。
+重跑不會重複加。herdr-git 的 install.ps1 會重建 tabs-git，跑過它之後要再跑一次這個，按鈕才會回來。
 
 ## 開關
 
-`ctrl+shift+m`。
+頂端 tab bar 的 Progress 按鈕，或 `ctrl+shift+m`。
 
 ## 怎麼判斷哪份清單是現在這場
 

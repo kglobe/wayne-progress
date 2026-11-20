@@ -6,7 +6,7 @@ $herdr = "$env:LOCALAPPDATA\Programs\herdr-app\herdr-app.exe"
 $dir = "$app\mods\wayne-progress"
 # A new mod folder whose main.js Herdr sees before mod.json gets the default place: build it outside mods\ and move it in whole.
 $to = if (Test-Path $dir) { $dir } else { New-Item -ItemType Directory -Force "$app\.staging-wayne-progress" }
-Copy-Item "$PSScriptRoot\mods\wayne-progress\*.js", "$PSScriptRoot\mods\wayne-progress\mod.json" $to -Force
+Copy-Item "$PSScriptRoot\mods\wayne-progress\*.js", "$PSScriptRoot\mods\wayne-progress\*.svg", "$PSScriptRoot\mods\wayne-progress\mod.json" $to -Force
 if ("$to" -ne $dir) { Move-Item $to $dir }
 
 # A right column with a fixed id, so ctrl-shift-m can toggle it (mod.open would float it as an overlay instead).
@@ -26,6 +26,28 @@ $bind = 'layout.toggle:wayne-progress'
 if ($k.global.'ctrl-shift-m' -ne $bind) {
     $k.global | Add-Member 'ctrl-shift-m' $bind -Force
     [IO.File]::WriteAllText($keys, ($k | ConvertTo-Json -Depth 100))
+}
+
+# A Progress button after Git in tabs-git's bar, same look as the panel buttons. herdr-git's install.ps1
+# rebuilds tabs-git from scratch, so run this again after it.
+$main = "$app\mods\tabs-git\main.js"
+if (-not (Test-Path $main)) { Write-Warning "no tabs-git mod: run herdr-git's install.ps1, then this again, for the Progress button" }
+else {
+    $js = [IO.File]::ReadAllText($main)
+    if (-not $js.Contains('id("panel-wayne-progress")')) {
+        $anchor = '.child(svg("mods/tabs-git/git.svg").size(14)).child("Git"))(panes().some(p => p.mod === "git-graph" && p.tab === selected)))'
+        if (-not $js.Contains($anchor)) { throw "tabs-git main.js changed: anchor not found in $main" }
+        $button = @'
+
+      .when(Boolean(find(root, "wayne-progress")), el => el.child((on => h_flex().id("panel-wayne-progress").h(26).px(8).gap(5).flex_none().items_center().rounded(6)
+        .text_size(12).bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted)
+        .hover(s => s.bg(t.hover)).on_mouse_down("left", stop).on_click(() => run("layout.toggle", { id: "wayne-progress" }))
+        .child(svg("mods/wayne-progress/progress.svg").size(14)).child("Progress"))(!find(root, "wayne-progress").hidden)))
+'@
+        [IO.File]::WriteAllText($main, $js.Replace($anchor, $anchor + $button.TrimEnd()))
+    }
+    & $herdr check "$app\mods\tabs-git" | Out-Host
+    if ($LASTEXITCODE) { throw 'herdr-app check tabs-git failed' }
 }
 
 & $herdr check $dir

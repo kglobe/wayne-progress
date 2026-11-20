@@ -70,7 +70,7 @@ export default class WayneProgress extends View {
   card(t, s, now) {
     const done = s.steps.filter((x) => x.mark === "x" || x.mark === "skip").length;
     const total = s.steps.length;
-    const wait = s.steps.find((x) => x.mark === "wait");
+    const waitAt = s.steps.findIndex((x) => x.mark === "wait"), wait = s.steps[waitAt];
     const cur = s.steps.findIndex((x) => x.mark === " ");
     const status = s.agent?.status ?? "idle";
     const idleMin = Math.round((now - s.mtime) / 60000);
@@ -81,43 +81,45 @@ export default class WayneProgress extends View {
       : finished ? ["完成", t.done ?? t.accent]
       : status === "working" ? ["進行中", t.working] : ["停著", t.muted];
 
-    // Around the current step: two done before it, four after. The rest folds into counts.
-    const from = cur < 0 ? Math.max(0, total - 3) : Math.max(0, cur - 2);
-    const to = cur < 0 ? total : Math.min(total, cur + 5);
+    // Around the step that matters (the wait, else the current one): two before it, four after. The rest folds into counts.
+    const focus = wait ? waitAt : cur;
+    const from = focus < 0 ? Math.max(0, total - 3) : Math.max(0, focus - 2);
+    const to = focus < 0 ? total : Math.min(total, focus + 5);
     const line = (x, i) => {
       const mark = x.mark === "x" ? "✓" : x.mark === "skip" ? "–" : x.mark === "wait" ? "!" : i === cur ? "▶" : "·";
       const c = x.mark === "wait" ? t.blocked : i === cur ? t.foreground : x.mark === " " ? t.muted : t.dim;
       return h_flex().gap(8).items_start()
         .child(div().w(12).flex_none().text_color(c).child(mark))
-        .child(div().flex_1().min_w(0).text_color(c).when(i === cur, (el) => el.font_semibold()).child(x.text));
+        // Only the step that matters wraps; the others stay one line so they don't outweigh it.
+        .child(div().flex_1().min_w(0).text_color(c).when(i === focus, (el) => el.font_semibold()).when(i !== focus, (el) => el.truncate().tooltip(x.text)).child(x.text));
     };
 
-    return v_flex().id(`wp-${s.id}`).gap(6).p(12).rounded(10).border(1).border_color(stale || wait || status === "blocked" ? t.blocked : t.border)
+    // Same frame as the terminal panes (radius 10, 1px border); the badge alone carries the status color.
+    return v_flex().id(`wp-${s.id}`).gap(6).p(12).rounded(10).border(1).border_color(t.border)
       .bg(t.background).cursor_pointer().hover((st) => st.bg(t.hover))
       .on_click(() => s.agent && run("pane.focus", { pane: s.agent.pane }))
       .child(h_flex().items_center().gap(8)
-        .child(div().flex_1().min_w(0).truncate().text_size(15).font_semibold().child(s.name))
-        .child(div().flex_none().px(8).py(2).rounded(6).bg(color + "26").text_color(color).text_size(12.5).font_semibold().child(label)))
-      .child(h_flex().items_center().gap(8)
-        .child(div().w(240).flex_none().h(6).rounded(3).bg(t.border).child(div().h(6).rounded(3).bg(color).w(Math.round(240 * done / total))))
-        .child(div().flex_1())
-        .child(div().flex_none().text_color(t.muted).child(`${done}/${total}`)))
-      .when(Boolean(wait), (el) => el.child(div().text_color(t.blocked).font_semibold().child(`等：${wait.text}`)))
+        .child(div().flex_1().min_w(0).truncate().text_size(13.5).font_semibold().child(s.name))
+        .child(div().flex_none().px(6).h(18).flex().items_center().rounded(5).bg(color + "26").text_color(color).text_size(11).font_semibold().child(label)))
+      .child(h_flex().items_center().gap(10)
+        .child(div().flex_1().h(4).rounded(2).bg(t.border).child(div().h_full().rounded(2).bg(color).w(`${Math.round(100 * done / total)}%`)))
+        .child(div().flex_none().text_size(12).text_color(t.muted).child(`${done}/${total}`)))
       .when(from > 0, (el) => el.child(div().text_color(t.dim).child(`前面 ${from} 步已處理`)))
       .children(s.steps.slice(from, to).map((x, k) => line(x, from + k)))
       .when(to < total, (el) => el.child(div().text_color(t.dim).child(`後面還有 ${total - to} 步`)))
-      .child(div().text_size(11.5).text_color(t.dim).child(`session ${s.id} · ${idleMin < 1 ? "剛剛" : `${idleMin} 分鐘前`}更新`));
+      .child(div().text_size(11).text_color(t.dim).child(`清單${idleMin < 1 ? "剛剛" : ` ${idleMin}m 前`}更新`));
   }
 
   render(_cx) {
     const t = theme(), now = Date.now();
     const order = (s) => (s.agent?.status === "blocked" || s.steps.some((x) => x.mark === "wait") ? 0 : s.agent?.status === "working" ? 1 : 2);
     const list = [...this.sessions].sort((a, b) => order(a) - order(b) || b.mtime - a.mtime);
-    return v_flex().id("wayne-progress").size_full().min_h(0).bg(t.chrome ?? t.background).text_color(t.foreground).text_size(13.5)
-      .child(h_flex().px(14).py(10).items_center()
-        .child(div().flex_1().text_size(14).font_semibold().child("wayne-mode 進度"))
-        .child(div().text_color(t.dim).child(`${list.length} 場`)))
-      .child(v_flex().id("wp-list").flex_1().min_h(0).px(10).pb(10).gap(10).overflow_y_scrollbar()
+    // Header is 42px with a bottom border so it lines up with the tab bar next to it.
+    return v_flex().id("wayne-progress").size_full().min_h(0).bg(t.chrome ?? t.background).text_color(t.foreground).text_size(13)
+      .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
+        .child(div().flex_1().text_size(12.5).text_color(t.muted).child("Progress"))
+        .child(div().text_size(12).text_color(t.dim).child(String(list.length))))
+      .child(v_flex().id("wp-list").flex_1().min_h(0).p(8).gap(8).overflow_y_scrollbar()
         .when(Boolean(this.error), (el) => el.child(div().text_color(t.blocked).child(this.error)))
         .when(!list.length && !this.error, (el) => el.child(div().p(6).text_color(t.dim).child("沒有進行中的 wayne-mode。")))
         .children(list.map((s) => this.card(t, s, now))));
